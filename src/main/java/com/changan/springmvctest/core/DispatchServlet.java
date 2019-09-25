@@ -1,5 +1,6 @@
 package com.changan.springmvctest.core;
 
+import com.changan.springmvctest.annotation.Autowired;
 import com.changan.springmvctest.annotation.Controller;
 import com.changan.springmvctest.annotation.RequestMapping;
 import com.changan.springmvctest.annotation.Service;
@@ -11,6 +12,7 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.IOException;
 import java.lang.annotation.Annotation;
+import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URL;
@@ -35,7 +37,10 @@ public class DispatchServlet extends HttpServlet {
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        System.out.println("dopost");
+        String url = req.getRequestURL().toString();
+        //4、处理请求
+        handleRequest("/api/test1");
+
     }
 
     @Override
@@ -57,8 +62,6 @@ public class DispatchServlet extends HttpServlet {
 
         System.out.println("urlMapping------------" + urlMapping.toString());
 
-        //4、处理请求
-        handleRequest("/api/test1");
 
     }
 
@@ -86,7 +89,7 @@ public class DispatchServlet extends HttpServlet {
                         && clazz.isAnnotationPresent(RequestMapping.class)) {
                     RequestMapping clazzRm = (RequestMapping) clazz.getAnnotation(RequestMapping.class);
                     controllerUrl = clazzRm.value()[0];
-                    //取出该类中所有的方法
+                    //取出该类中所有的方法，映射路径和方法
                     Method[] methods = clazz.getMethods();
                     for (Method method : methods) {
                         if (method.isAnnotationPresent(RequestMapping.class)) {
@@ -97,7 +100,25 @@ public class DispatchServlet extends HttpServlet {
 
                         }
                     }
+
+                    //注入service到controller
+                    Field[] fields = clazz.getDeclaredFields();
+                    for (Field field : fields) {
+                        field.setAccessible(true);
+                        if(field.isAnnotationPresent(Autowired.class)){
+                            //获取字段本身类型
+                            Class fieldType = field.getType();
+                            String injectName = fieldType.getCanonicalName();
+                            Object injectObj = clazzMap.get(injectName);
+                            //获取字段所属类的类型
+                            Class declaringClazz = field.getDeclaringClass();
+                            String controllerName = declaringClazz.getCanonicalName();
+                            Object controller = clazzMap.get(controllerName);
+                            field.set(controller,injectObj);
+                        }
+                    }
                 }
+
             } catch (Exception e) {
             }
         }

@@ -19,6 +19,7 @@ public class TestController {
     }
     @RequestMapping("/test1")
     public String test1(){
+        service.test();
         System.out.println("hello spring mvc");
         return "hello spring mvc";
     }
