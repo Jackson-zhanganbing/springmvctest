@@ -38,8 +38,9 @@ public class DispatchServlet extends HttpServlet {
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         String url = req.getRequestURL().toString();
+        String dispatchUrl = url.substring(url.indexOf("mvc/")).replaceAll("mvc","");
         //4、处理请求
-        handleRequest("/api/test1");
+        handleRequest(dispatchUrl);
 
     }
 
