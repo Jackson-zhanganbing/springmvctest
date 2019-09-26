@@ -11,12 +11,14 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.IOException;
-import java.lang.annotation.Annotation;
+import java.io.PrintWriter;
 import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URL;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * 分发请求
@@ -26,9 +28,21 @@ import java.util.*;
  */
 public class DispatchServlet extends HttpServlet {
 
+
+    /**
+     * 扫描包的所有类（com.changan.springmvctest.core.DispatchServlet)集合
+     */
     List<String> fileNameList = new ArrayList<>();
+
+    /**
+     * 类全名和实例化的类映射
+    */
     Map<String, Object> clazzMap = new HashMap<>();
-    Map<String, Method> urlMapping = new HashMap<>();
+
+    /**
+     * url和具体方法的映射
+    */
+    Map<String, Method> urlMap = new HashMap<>();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
@@ -38,9 +52,11 @@ public class DispatchServlet extends HttpServlet {
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         String url = req.getRequestURL().toString();
-        String dispatchUrl = url.substring(url.indexOf("mvc/")).replaceAll("mvc","");
+        String dispatchUrl = url.substring(url.indexOf("mvc/")).replaceAll("mvc", "");
         //4、处理请求
-        handleRequest(dispatchUrl);
+        Object response = handleRequest(dispatchUrl);
+        PrintWriter printWriter = resp.getWriter();
+        printWriter.print(response.toString());
 
     }
 
@@ -61,17 +77,17 @@ public class DispatchServlet extends HttpServlet {
         //3、找到请求的路径，对应到方法上
         mappingUrl();
 
-        System.out.println("urlMapping------------" + urlMapping.toString());
+        System.out.println("urlMap------------" + urlMap.toString());
 
 
     }
 
     private Object handleRequest(String url) {
-        Method method = urlMapping.get(url);
+        Method method = urlMap.get(url);
         Class clazz = method.getDeclaringClass();
         String className = clazz.getCanonicalName();
         try {
-           return method.invoke(clazzMap.get(className),null);
+            return method.invoke(clazzMap.get(className), null);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -97,7 +113,7 @@ public class DispatchServlet extends HttpServlet {
                             RequestMapping methodRm = method.getAnnotation(RequestMapping.class);
                             String methodUrl = methodRm.value()[0];
 
-                            urlMapping.put(controllerUrl+methodUrl, method);
+                            urlMap.put(controllerUrl + methodUrl, method);
 
                         }
                     }
@@ -106,7 +122,7 @@ public class DispatchServlet extends HttpServlet {
                     Field[] fields = clazz.getDeclaredFields();
                     for (Field field : fields) {
                         field.setAccessible(true);
-                        if(field.isAnnotationPresent(Autowired.class)){
+                        if (field.isAnnotationPresent(Autowired.class)) {
                             //获取字段本身类型
                             Class fieldType = field.getType();
                             String injectName = fieldType.getCanonicalName();
@@ -115,7 +131,7 @@ public class DispatchServlet extends HttpServlet {
                             Class declaringClazz = field.getDeclaringClass();
                             String controllerName = declaringClazz.getCanonicalName();
                             Object controller = clazzMap.get(controllerName);
-                            field.set(controller,injectObj);
+                            field.set(controller, injectObj);
                         }
                     }
                 }
@@ -132,8 +148,7 @@ public class DispatchServlet extends HttpServlet {
             //如果被Controller或者Service标记的类，实例化放入map
             try {
                 clazz = Class.forName(clazzName);
-                if (clazz.isAnnotationPresent(Controller.class)
-                        || clazz.isAnnotationPresent(Service.class)) {
+                if (clazz.isAnnotationPresent(Controller.class) || clazz.isAnnotationPresent(Service.class)) {
 
                     object = clazz.getConstructor().newInstance();
                     clazzMap.put(clazzName, object);
@@ -150,8 +165,14 @@ public class DispatchServlet extends HttpServlet {
     private void loadFiles(String basePath) {
 
         URL url = getClass().getClassLoader().getResource(basePath);
+        if(url == null){
+            return;
+        }
         String fileName = url.getFile();
         File[] baseFile = new File(fileName).listFiles();
+        if(baseFile == null){
+            return;
+        }
         for (File file : baseFile) {
             if (!file.isDirectory()) {
                 String filePath = basePath.replaceAll("\\/", ".");
