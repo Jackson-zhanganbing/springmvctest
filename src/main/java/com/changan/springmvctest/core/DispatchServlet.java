@@ -98,7 +98,6 @@ public class DispatchServlet extends HttpServlet {
         for (Map.Entry<String, Object> beanEntry : clazzMap.entrySet()) {
             String clazzName = beanEntry.getKey();
             Class clazz = null;
-            Object object = null;
             String controllerUrl = null;
             try {
                 clazz = Class.forName(clazzName);
